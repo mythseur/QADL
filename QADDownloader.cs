@@ -21,42 +21,48 @@ namespace QAD
         public string extension;
     }
 
-    public partial class downloadDialog : Form
+    public partial class QADDownloader
     {
         AQueue listFile = new AQueue();
         WebClient weblcient = new WebClient();
         public int maxParallalDownload = 1;
-        public string downloadingMessage = "Downloading...";
 
-        public downloadDialog(AQueue l)
+        public event EventHandler<ProgressEventArgs> ProgressChanged;
+        public event EventHandler DownloadsFinished;
+
+        private int total;
+
+        public QADDownloader(AQueue l)
         {
-            InitializeComponent();
             foreach(var v in l)
             {
                 listFile.Enqueue(v);
             }
-            weblcient.DownloadProgressChanged += client_DownloadProgressChanged;
+
+            total = listFile.Count;
+
             weblcient.DownloadFileCompleted += client_DownloadFileCompleted;
-            weblcient.Down
+        }
+
+        public void startDownloads()
+        {
             downloadFile();
         }
 
-        private void buttonCancel_Click(object sender, EventArgs e)
+        private void cancelDownloads(object sender, EventArgs e)
         {
             if (weblcient.IsBusy)
             {
                 weblcient.CancelAsync();
 
             }
-            this.DialogResult = DialogResult.OK;
-            this.Close();
         }
 
         private void downloadFile()
         {
             if (listFile.Any())
             {
-                if (listFile.Count - maxParallalDownload > 0)
+                if (listFile.Count - maxParallalDownload >= 0)
                 {
                     if (maxParallalDownload != 1)
                     {
@@ -64,7 +70,6 @@ namespace QAD
                         {
                             var file = listFile.Dequeue();
 
-                            label1.Text = downloadingMessage;
                             weblcient.DownloadFileAsync(new Uri(file.url), file.path + file.title + file.extension);
                         }
                     }
@@ -72,15 +77,26 @@ namespace QAD
                     {
                         var file = listFile.Dequeue();
 
-                        label1.Text = downloadingMessage;
                         weblcient.DownloadFileAsync(new Uri(file.url), file.path + file.title + file.extension);
                     }
                 }
             }
             else
             {
-                buttonCancel.Text = "Terminer";
+                DownloadsFinished(this, EventArgs.Empty);
             }
+        }
+
+        protected virtual void OnProgressChanged(ProgressEventArgs e)
+        {
+            if (ProgressChanged != null)
+                ProgressChanged(this, e);
+        }
+
+        protected virtual void OnDownloadsFinished(EventArgs e)
+        {
+            if (DownloadsFinished != null)
+                DownloadsFinished(this, e);
         }
 
         private void client_DownloadFileCompleted(object sender, AsyncCompletedEventArgs e)
@@ -90,31 +106,57 @@ namespace QAD
                 if (!e.Cancelled)
                 {
                     MessageBox.Show(e.Error.ToString());
-                    downloadFile();
                 }
             }
-            else
-            {
-                downloadFile();
-            }
-        }
 
-        private void client_DownloadProgressChanged(object sender, DownloadProgressChangedEventArgs e)
-        {
-            double bytesIn = double.Parse(e.BytesReceived.ToString());
-            double totalBytes = double.Parse(e.TotalBytesToReceive.ToString());
-            double percentage = bytesIn / totalBytes * 100;
-            label2.Text = Math.Truncate(percentage).ToString() + "%";
-            progressBar.Value = int.Parse(Math.Truncate(percentage).ToString());   
+            OnProgressChanged(new ProgressEventArgs(total - listFile.Count, total));
+            downloadFile();
         }
 
     }
 
-    public class AQueue : System.Collections.Generic.Queue<QAD.File>
+    public class AQueue
     {
+        private Queue<File> queue = new Queue<File>();
+
+        public int Count { get { return queue.Count; } }
+
+
         public AQueue()
         {
 
+        }
+
+        public virtual void Enqueue(File item)
+        {
+            queue.Enqueue(item);
+        }
+
+        public virtual File Dequeue()
+        {
+            return queue.Dequeue();
+        }
+
+        public virtual Boolean Any()
+        {
+            return (queue.Count > 0);
+        }
+
+        public virtual Queue<File>.Enumerator GetEnumerator()
+        {
+            return queue.GetEnumerator();
+        }
+    }
+
+    public class ProgressEventArgs : EventArgs
+    {
+        public int Current { get; private set; }
+        public int Total { get; private set; }
+
+        public ProgressEventArgs(int current, int max)
+        {
+            Current = current;
+            Total = max;
         }
     }
 }
