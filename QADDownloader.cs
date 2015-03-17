@@ -116,17 +116,18 @@ namespace QAD
                         for (int i = 0; i < maxParallalDownload; i++)
                         {
                             var file = listFile.Dequeue();
-
+                            string filename = file.title + file.extension;
                             weblcient.DownloadFileAsync(new Uri(file.url),
-                            file.path + file.title + file.extension);
+                            file.path + filename, filename);
                         }
                     }
                     else
                     {
                         var file = listFile.Dequeue();
-
+                        string filename = file.title + file.extension;
+                        
                         weblcient.DownloadFileAsync(new Uri(file.url),
-                        file.path + file.title + file.extension);
+                        file.path + filename, filename);
                     }
                 }
             }
@@ -143,7 +144,7 @@ namespace QAD
         protected virtual void OnProgressChanged(ProgressEventArgs e)
         {
             if (ProgressChanged != null)
-                ProgressChanged(this, e);
+                ProgressChanged(this, e, (string)e.UserState);
         }
 
         /// <summary>
